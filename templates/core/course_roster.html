@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+      <div class="d-flex align-items-center gap-2">
+        <h3 class="fw-bold m-0">{{ course.code }}: {{ course.title }}</h3>
+        <span class="badge bg-primary">{{ total_enrolled }} Enrolled</span>
+      </div>
+      <p class="text-muted small m-0">Department: {{ course.department.name }} | Total Conducted Sessions: {{ total_classes }}</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'core:take_attendance' course.id %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i> Mark New Session
+      </a>
+      <a href="{% url 'core:teacher_courses' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i> Back
+      </a>
+    </div>
+  </div>
+
+  <div class="card p-3 shadow-sm border-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Roll Number</th>
+            <th>Student Name</th>
+            <th>Email</th>
+            <th>Attended / Total</th>
+            <th>Attendance %</th>
+            <th>Health Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in roster_data %}
+          <tr>
+            <td class="fw-bold text-dark">{{ item.student.roll_number }}</td>
+            <td>{{ item.student.user.get_full_name|default:item.student.user.username }}</td>
+            <td class="text-muted small">{{ item.student.user.email }}</td>
+            <td><span class="fw-semibold">{{ item.attended_count }}</span> / {{ total_classes }}</td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="progress flex-grow-1" style="height: 6px; width: 80px;">
+                  <div class="progress-bar {% if item.attendance_pct >= 75 %}bg-success{% elif item.attendance_pct >= 60 %}bg-warning{% else %}bg-danger{% endif %}" 
+                       style="width: {{ item.attendance_pct }}%;"></div>
+                </div>
+                <span class="fw-bold small">{{ item.attendance_pct }}%</span>
+              </div>
+            </td>
+            <td>
+              {% if item.is_defaulter %}
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle"><i class="bi bi-exclamation-triangle-fill me-1"></i>Short Attendance</span>
+              {% else %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-circle-fill me-1"></i>Satisfactory</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-center text-muted py-4">No students currently enrolled in this course.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

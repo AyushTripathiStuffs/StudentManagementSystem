@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Department, AcademicSession, Teacher, Student, Course, Enrollment, Attendance
+from .models import Department, AcademicSession, Teacher, Student, Course, Enrollment, Attendance, CourseApplication
 
 
 @admin.register(Department)
@@ -70,3 +70,10 @@ class AttendanceAdmin(admin.ModelAdmin):
     search_fields = ('student__roll_number', 'student__user__first_name', 'student__user__last_name', 'course__code')
     date_hierarchy = 'date'
     raw_id_fields = ('student', 'course', 'marked_by')
+
+@admin.register(CourseApplication)
+class CourseApplicationAdmin(admin.ModelAdmin):
+    list_display = ('student', 'course', 'academic_session', 'status', 'applied_at', 'reviewed_by')
+    list_filter = ('status', 'academic_session', 'course__department')
+    search_fields = ('student__roll_number', 'student__user__first_name', 'course__code', 'course__title')
+    raw_id_fields = ('student', 'course', 'reviewed_by')

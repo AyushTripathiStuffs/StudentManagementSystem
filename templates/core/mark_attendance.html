@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="mb-4">
+    <h3 class="fw-bold">Mark Attendance</h3>
+    <p class="text-muted small">Select course and date to record daily presence</p>
+  </div>
+
+  <!-- Filter Card -->
+  <div class="card p-4 mb-4">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-5">
+        <label class="form-label fw-semibold small">Select Course</label>
+        {{ filter_form.course }}
+      </div>
+      <div class="col-md-5">
+        <label class="form-label fw-semibold small">Session Date</label>
+        {{ filter_form.date }}
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-primary w-100 fw-semibold">Load Session</button>
+      </div>
+    </form>
+  </div>
+
+  {% if formset %}
+  <!-- Attendance Table Card -->
+  <div class="card p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold m-0">{{ course.code }} - {{ course.title }} ({{ selected_date }})</h5>
+      <span class="badge bg-light text-dark border">{{ students_list|length }} Enrolled Students</span>
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+      {{ formset.management_form }}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th style="width: 15%;">Roll Number</th>
+              <th style="width: 25%;">Student Name</th>
+              <th style="width: 25%;">Status</th>
+              <th style="width: 35%;">Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for form, student in form_and_students %}
+            <tr>
+              <td class="fw-bold">
+                {{ form.student_id }}
+                {{ student.roll_number }}
+              </td>
+              <td>{{ student.user.get_full_name|default:student.user.username }}</td>
+              <td>{{ form.status }}</td>
+              <td>{{ form.remarks }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="mt-3 text-end">
+        <button type="submit" class="btn btn-success px-4 fw-semibold">
+          <i class="bi bi-check2-circle me-1"></i> Save Attendance
+        </button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

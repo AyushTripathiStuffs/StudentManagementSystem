@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 800px;">
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <h3 class="fw-bold m-0">{{ title }}</h3>
+    <a href="{% url 'core:course_list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i> Back to List
+    </a>
+  </div>
+
+  <div class="card p-4">
+    <form method="post">
+      {% csrf_token %}
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold small">Course Code</label>
+          {{ form.code }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold small">Credits</label>
+          {{ form.credits }}
+        </div>
+        <div class="col-12">
+          <label class="form-label fw-semibold small">Course Title</label>
+          {{ form.title }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold small">Department</label>
+          {{ form.department }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold small">Assigned Teacher</label>
+          {{ form.teacher }}
+        </div>
+        <div class="col-12">
+          <label class="form-label fw-semibold small">Prerequisites</label>
+          {{ form.prerequisites }}
+        </div>
+      </div>
+      <div class="mt-4 text-end">
+        <button type="submit" class="btn btn-primary px-4 fw-semibold">Save Course</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold m-0">Bulk Course Enrollment Manager</h3>
+            <p class="text-muted small m-0">Filter candidates, assign courses in batch, and synchronize student rosters
+            </p>
+        </div>
+    </div>
+
+    <!-- Selection Controls -->
+    <div class="card p-4 shadow-sm border-0 mb-4">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label fw-semibold small">1. Select Target Course <span
+                        class="text-danger">*</span></label>
+                <select name="course" class="form-select" required>
+                    <option value="">-- Choose Course --</option>
+                    {% for c in courses %}
+                    <option value="{{ c.id }}" {% if selected_course.id == c.id %}selected{% endif %}>
+                        {{ c.code }} - {{ c.title }} ({{ c.department.code }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label fw-semibold small">2. Academic Session <span
+                        class="text-danger">*</span></label>
+                <select name="session" class="form-select" required>
+                    {% for s in sessions %}
+                    <option value="{{ s.id }}" {% if selected_session.id == s.id %}selected{% endif %}>
+                        {{ s.name }} {% if s.is_current %}(Active){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label fw-semibold small">Filter Department</label>
+                <select name="department" class="form-select">
+                    <option value="">All / Course Default</option>
+                    {% for d in departments %}
+                    <option value="{{ d.id }}" {% if selected_dept == d.id|stringformat:"i" %}selected{% endif %}>
+                        {{ d.name }} ({{ d.code }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100 fw-semibold">
+                    <i class="bi bi-filter me-1"></i> Load Roster
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {% if selected_course and selected_session %}
+    <!-- Roster Management Card -->
+    <div class="card p-4 shadow-sm border-0">
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                <div>
+                    <h5 class="fw-bold m-0 text-dark">
+                        {{ selected_course.code }}: {{ selected_course.title }}
+                    </h5>
+                    <span class="text-muted small">
+                        Session: <strong>{{ selected_session.name }}</strong> | Currently Enrolled: <span
+                            class="badge bg-success-subtle text-success border">{{ total_enrolled_count }}</span>
+                    </span>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" name="action" value="enroll" class="btn btn-success fw-semibold btn-sm">
+                        <i class="bi bi-person-check-fill me-1"></i> Enroll Selected
+                    </button>
+                    <button type="submit" name="action" value="unenroll"
+                        class="btn btn-outline-danger fw-semibold btn-sm"
+                        onclick="return confirm('Are you sure you want to unenroll selected students?');">
+                        <i class="bi bi-person-dash-fill me-1"></i> Unenroll Selected
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 40px;">
+                                <input type="checkbox" id="selectAllCheckbox" class="form-check-input"
+                                    onclick="toggleAllCheckboxes(this)">
+                            </th>
+                            <th>Roll Number</th>
+                            <th>Student Name</th>
+                            <th>Department</th>
+                            <th>Status in Course</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in students_data %}
+                        <tr class="{% if item.is_enrolled %}table-success-subtle{% endif %}">
+                            <td>
+                                <input type="checkbox" name="selected_students" value="{{ item.student.id }}"
+                                    class="form-check-input student-checkbox">
+                            </td>
+                            <td class="fw-bold">{{ item.student.roll_number }}</td>
+                            <td>{{ item.student.user.get_full_name|default:item.student.user.username }}</td>
+                            <td><span class="badge bg-light text-dark border">{{ item.student.department.code }}</span>
+                            </td>
+                            <td>
+                                {% if item.is_enrolled %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Enrolled</span>
+                                {% else %}
+                                <span class="badge bg-secondary-subtle text-secondary border">Not Enrolled</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">No matching students found in this
+                                department or filter.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+    {% else %}
+    <div class="card p-5 text-center text-muted border-0 shadow-sm">
+        <i class="bi bi-hand-index-thumb fs-1 text-primary mb-2"></i>
+        <h5>Select a Course & Session above to manage student enrollments</h5>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    function toggleAllCheckboxes(master) {
+        document.querySelectorAll('.student-checkbox').forEach(cb => {
+            cb.checked = master.checked;
+        });
+    }
+</script>
+{% endblock %}

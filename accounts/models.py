@@ -12,3 +12,7 @@ class User(AbstractUser):
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.ADMIN)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     address = models.TextField(blank=True, null=True)
+    password_change_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Tracks number of times user changed password (Maximum 2 allowed)"
+    )

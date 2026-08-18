@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="mb-4">
+    <h3 class="fw-bold">Overview Dashboard</h3>
+    <p class="text-muted small">Real-time statistics and academic updates</p>
+  </div>
+
+  {% if user_role == 'ADMIN' or user.is_superuser %}
+  <!-- Admin Metrics -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card p-3">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <span class="text-muted small fw-semibold">Total Students</span>
+            <h3 class="fw-bold m-0 mt-1">{{ total_students }}</h3>
+          </div>
+          <div class="metric-badge bg-primary-subtle text-primary">
+            <i class="bi bi-people-fill fs-4"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card p-3">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <span class="text-muted small fw-semibold">Faculty Staff</span>
+            <h3 class="fw-bold m-0 mt-1">{{ total_teachers }}</h3>
+          </div>
+          <div class="metric-badge bg-success-subtle text-success">
+            <i class="bi bi-person-badge-fill fs-4"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card p-3">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <span class="text-muted small fw-semibold">Active Courses</span>
+            <h3 class="fw-bold m-0 mt-1">{{ total_courses }}</h3>
+          </div>
+          <div class="metric-badge bg-warning-subtle text-warning">
+            <i class="bi bi-book-fill fs-4"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card p-3">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <span class="text-muted small fw-semibold">Departments</span>
+            <h3 class="fw-bold m-0 mt-1">{{ total_departments }}</h3>
+          </div>
+          <div class="metric-badge bg-info-subtle text-info">
+            <i class="bi bi-buildings-fill fs-4"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card p-4 h-100">
+        <h5 class="fw-bold mb-3">Recently Enrolled Students</h5>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Roll No</th>
+                <th>Name</th>
+                <th>Department</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for student in recent_students %}
+              <tr>
+                <td class="fw-semibold">{{ student.roll_number }}</td>
+                <td>{{ student.user.get_full_name|default:student.user.username }}</td>
+                <td><span class="badge bg-light text-dark border">{{ student.department.code }}</span></td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="text-center text-muted py-3">No students found.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card p-4 h-100">
+        <h5 class="fw-bold mb-3">Recent Attendance Logs</h5>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Date</th>
+                <th>Student</th>
+                <th>Course</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for att in recent_attendances %}
+              <tr>
+                <td>{{ att.date }}</td>
+                <td>{{ att.student.user.get_full_name|default:att.student.user.username }}</td>
+                <td>{{ att.course.code }}</td>
+                <td>
+                  <span class="badge {% if att.status == 'PRESENT' %}bg-success{% elif att.status == 'ABSENT' %}bg-danger{% else %}bg-warning{% endif %}">
+                    {{ att.status }}
+                  </span>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="text-center text-muted py-3">No attendance records.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% elif user_role == 'TEACHER' %}
+  <!-- Teacher Dashboard -->
+  <div class="card p-4 mb-4">
+    <h5 class="fw-bold mb-3">Assigned Courses</h5>
+    <div class="row g-3">
+      {% for course in courses %}
+      <div class="col-md-4">
+        <div class="card p-3 border">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="badge bg-primary">{{ course.code }}</span>
+            <span class="text-muted small">{{ course.credits }} Credits</span>
+          </div>
+          <h6 class="fw-bold">{{ course.title }}</h6>
+          <p class="text-muted small mb-3">{{ course.department.name }}</p>
+          <a href="{% url 'core:mark_attendance' %}?course={{ course.id }}" class="btn btn-sm btn-outline-primary w-100">
+            <i class="bi bi-check-circle me-1"></i> Mark Attendance
+          </a>
+        </div>
+      </div>
+      {% empty %}
+      <p class="text-muted">No courses assigned yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% elif user_role == 'STUDENT' %}
+  <!-- Student Dashboard -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card p-3">
+        <span class="text-muted small fw-semibold">Attendance Ratio</span>
+        <h2 class="fw-bold mt-2 text-primary">{{ attendance_percentage }}%</h2>
+        <span class="text-muted small">{{ attendance_stats.present }}/{{ attendance_stats.total }} Classes Attended</span>
+      </div>
+    </div>
+    <div class="col-md-8">
+      <div class="card p-4">
+        <h5 class="fw-bold mb-3">My Enrolled Courses</h5>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Code</th>
+                <th>Course</th>
+                <th>Teacher</th>
+                <th>Credits</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for enrollment in enrollments %}
+              <tr>
+                <td class="fw-semibold">{{ enrollment.course.code }}</td>
+                <td>{{ enrollment.course.title }}</td>
+                <td>{{ enrollment.course.teacher.user.get_full_name|default:"TBA" }}</td>
+                <td>{{ enrollment.course.credits }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="text-center text-muted">No active course enrollments.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

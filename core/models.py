@@ -106,3 +106,75 @@ class Attendance(models.Model):
 
     def __str__(self):
         return f"{self.student.roll_number} - {self.course.code} - {self.date}: {self.status}"
+
+class Notification(models.Model):
+    class NotificationType(models.TextChoices):
+        GENERAL = 'GENERAL', 'General Notice'
+        VERIFICATION = 'VERIFICATION', 'Verification & Registration'
+        SECURITY = 'SECURITY', 'Security & Profile Update'
+        ATTENDANCE = 'ATTENDANCE', 'Attendance Alert'
+        URGENT = 'URGENT', 'Urgent Announcement'
+
+    class TargetAudience(models.TextChoices):
+        ALL = 'ALL', 'Everyone'
+        TEACHERS = 'TEACHERS', 'Faculty / Teachers Only'
+        STUDENTS = 'STUDENTS', 'Students Only'
+        STAFF = 'STAFF', 'Admin / Staff Only'
+
+    recipient = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='notifications',
+        help_text="If blank, broadcasted to the selected Target Audience."
+    )
+    target_audience = models.CharField(
+        max_length=20,
+        choices=TargetAudience.choices,
+        default=TargetAudience.ALL
+    )
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        help_text="Leave blank to broadcast across all departments."
+    )
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    notification_type = models.CharField(
+        max_length=20,
+        choices=NotificationType.choices,
+        default=NotificationType.GENERAL
+    )
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"[{self.target_audience}] {self.title}"
+
+class CourseApplication(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending Approval'
+        APPROVED = 'APPROVED', 'Approved'
+        REJECTED = 'REJECTED', 'Rejected'
+
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='course_applications')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='applications')
+    academic_session = models.ForeignKey(AcademicSession, on_delete=models.CASCADE, related_name='course_applications')
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
+    applied_at = models.DateTimeField(auto_now_add=True)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    admin_remarks = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        unique_together = ('student', 'course', 'academic_session')
+        ordering = ['-applied_at']
+
+    def __str__(self):
+        return f"{self.student.roll_number} - {self.course.code} ({self.status})"

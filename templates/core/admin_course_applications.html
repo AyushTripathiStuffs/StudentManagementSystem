@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold m-0">Student Course Applications</h3>
+            <p class="text-muted small m-0">Review pending course enrollments, verify credentials, and approve access
+            </p>
+        </div>
+        <span class="badge bg-warning text-dark px-3 py-2 fs-6">Pending Review: {{ pending_count }}</span>
+    </div>
+
+    <!-- Filters -->
+    <div class="card p-3 shadow-sm border-0 mb-4">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label fw-semibold small">Academic Session</label>
+                <select name="session" class="form-select">
+                    {% for s in sessions %}
+                    <option value="{{ s.id }}" {% if selected_session_id == s.id|stringformat:"i" %}selected{% endif %}>
+                        {{ s.name }} {% if s.is_current %}(Active){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold small">Status</label>
+                <select name="status" class="form-select">
+                    <option value="PENDING" {% if status_filter == 'PENDING' %}selected{% endif %}>Pending Approval
+                    </option>
+                    <option value="APPROVED" {% if status_filter == 'APPROVED' %}selected{% endif %}>Approved</option>
+                    <option value="REJECTED" {% if status_filter == 'REJECTED' %}selected{% endif %}>Rejected</option>
+                    <option value="ALL" {% if status_filter == 'ALL' %}selected{% endif %}>All Applications</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold small">Search</label>
+                <input type="text" name="q" class="form-control" placeholder="Roll No, Name, Course..."
+                    value="{{ search_query }}">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100 fw-semibold">
+                    <i class="bi bi-filter me-1"></i> Filter
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Applications Table -->
+    <div class="card p-3 shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Applied Date</th>
+                        <th>Roll Number</th>
+                        <th>Student Name</th>
+                        <th>Department</th>
+                        <th>Course</th>
+                        <th>Status</th>
+                        <th class="text-end">Review Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for app in applications %}
+                    <tr>
+                        <td>{{ app.applied_at|date:"M d, Y H:i" }}</td>
+                        <td class="fw-bold">{{ app.student.roll_number }}</td>
+                        <td>{{ app.student.user.get_full_name|default:app.student.user.username }}</td>
+                        <td><span class="badge bg-light text-dark border">{{ app.student.department.code }}</span></td>
+                        <td><strong>{{ app.course.code }}</strong> - {{ app.course.title }}</td>
+                        <td>
+                            <span
+                                class="badge {% if app.status == 'APPROVED' %}bg-success{% elif app.status == 'REJECTED' %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+                                {{ app.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            {% if app.status == 'PENDING' %}
+                            <button type="button" class="btn btn-sm btn-success fw-semibold me-1" data-bs-toggle="modal"
+                                data-bs-target="#reviewModal{{ app.id }}" data-action="approve">
+                                <i class="bi bi-check-lg"></i> Approve
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger fw-semibold"
+                                data-bs-toggle="modal" data-bs-target="#reviewModal{{ app.id }}" data-action="reject">
+                                <i class="bi bi-x-lg"></i> Reject
+                            </button>
+
+                            <!-- Review Modal -->
+                            <div class="modal fade" id="reviewModal{{ app.id }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered text-start">
+                                    <div class="modal-content border-0 shadow">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title fw-bold">Review Course Application</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="post">
+                                            {% csrf_token %}
+                                            <div class="modal-body">
+                                                <input type="hidden" name="application_id" value="{{ app.id }}">
+                                                <p class="mb-2"><strong>Student:</strong>
+                                                    {{ app.student.user.get_full_name }} ({{ app.student.roll_number }})
+                                                </p>
+                                                <p class="mb-3"><strong>Course:</strong> {{ app.course.code }} -
+                                                    {{ app.course.title }}</p>
+
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-semibold small">Decision Action</label>
+                                                    <select name="action" class="form-select" required>
+                                                        <option value="approve">Approve & Enroll</option>
+                                                        <option value="reject">Reject Application</option>
+                                                    </select>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-semibold small">Remarks / Feedback
+                                                        (Optional)</label>
+                                                    <input type="text" name="remarks" class="form-control"
+                                                        placeholder="e.g. Prerequisites checked or capacity full">
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-light"
+                                                    data-bs-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-primary fw-semibold">Save
+                                                    Decision</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <span class="text-muted small">Reviewed by
+                                {{ app.reviewed_by.username|default:"Admin" }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">No course applications match the current
+                            filter.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 800px;">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h3 class="fw-bold m-0">Assign Course Enrollments</h3>
+            <p class="text-muted small m-0">Bulk enroll students to a course for an academic session</p>
+        </div>
+        <a href="{% url 'core:teacher_courses' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i> Back
+        </a>
+    </div>
+
+    <div class="card p-4 shadow-sm border-0">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold small">Course</label>
+                    {{ form.course }}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold small">Academic Session</label>
+                    {{ form.academic_session }}
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold small">Select Students to Enroll</label>
+                    {{ form.students }}
+                    <div class="form-text">Hold Ctrl / Cmd to select multiple students.</div>
+                </div>
+            </div>
+            <div class="mt-4 text-end">
+                <button type="submit" class="btn btn-primary px-4 fw-semibold">
+                    <i class="bi bi-check-lg me-1"></i> Confirm Enrollments
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

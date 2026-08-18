@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="mb-4">
+    <h3 class="fw-bold">Attendance Records</h3>
+    <p class="text-muted small">Historical logs and student attendance breakdown</p>
+  </div>
+
+  <div class="card p-3">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Date</th>
+            <th>Roll No</th>
+            <th>Student Name</th>
+            <th>Course</th>
+            <th>Status</th>
+            <th>Remarks</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for record in records %}
+          <tr>
+            <td>{{ record.date }}</td>
+            <td class="fw-semibold">{{ record.student.roll_number }}</td>
+            <td>{{ record.student.user.get_full_name|default:record.student.user.username }}</td>
+            <td>{{ record.course.code }}</td>
+            <td>
+              <span class="badge {% if record.status == 'PRESENT' %}bg-success{% elif record.status == 'ABSENT' %}bg-danger{% elif record.status == 'LATE' %}bg-warning{% else %}bg-secondary{% endif %}">
+                {{ record.status }}
+              </span>
+            </td>
+            <td class="text-muted small">{{ record.remarks|default:"-" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-center text-muted py-4">No records found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
