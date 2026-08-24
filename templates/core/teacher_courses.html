@@ -38,6 +38,18 @@
                                 <span class="text-muted small d-block">Lectures Held</span>
                                 <span class="fs-5 fw-bold text-dark">{{ course.total_sessions }}</span>
                             </div>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between text-muted small mb-1">
+                                    <span>Course Completion Progress</span>
+                                    <strong>{{ course.total_sessions }} / {{ course.total_planned_classes }}
+                                        Classes</strong>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-primary"
+                                        style="width: {% widthratio course.total_sessions course.total_planned_classes 100 %}%;">
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

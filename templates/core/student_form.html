@@ -3,11 +3,7 @@
 {% block content %}
 <div class="container-fluid" style="max-width: 800px;">
   <div class="d-flex align-items-center justify-content-between mb-4">
-    <div>
-      <h3 class="fw-bold m-0">{{ title }}</h3>
-      <p class="text-muted small m-0">A 5-character temporary password will be auto-generated and emailed to the
-        student.</p>
-    </div>
+    <h3 class="fw-bold m-0">{{ title }}</h3>
     <a href="{% url 'core:student_list' %}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-arrow-left me-1"></i> Back to List
     </a>
@@ -22,7 +18,7 @@
           {{ form.roll_number }}
         </div>
         <div class="col-md-6">
-          <label class="form-label fw-semibold small">Allot Username</label>
+          <label class="form-label fw-semibold small">Username</label>
           {{ form.username }}
         </div>
         <div class="col-md-6">
@@ -34,7 +30,7 @@
           {{ form.last_name }}
         </div>
         <div class="col-12">
-          <label class="form-label fw-semibold small">Student Email (Credentials will be sent here)</label>
+          <label class="form-label fw-semibold small">Email Address</label>
           {{ form.email }}
         </div>
         <div class="col-md-6">
@@ -49,10 +45,17 @@
           <label class="form-label fw-semibold small">Admission Date</label>
           {{ form.admission_date }}
         </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold small">Set Password</label>
+          {{ form.password }}
+          {% if form.password.help_text %}
+            <div class="form-text small">{{ form.password.help_text }}</div>
+          {% endif %}
+        </div>
       </div>
       <div class="mt-4 text-end">
         <button type="submit" class="btn btn-primary px-4 fw-semibold">
-          <i class="bi bi-person-plus-fill me-1"></i> Save & Dispatch Credentials
+          <i class="bi bi-check-circle-fill me-1"></i> Save Student Record
         </button>
       </div>
     </form>

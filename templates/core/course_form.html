@@ -3,13 +3,16 @@
 {% block content %}
 <div class="container-fluid" style="max-width: 800px;">
   <div class="d-flex align-items-center justify-content-between mb-4">
-    <h3 class="fw-bold m-0">{{ title }}</h3>
+    <div>
+      <h3 class="fw-bold m-0">{{ title }}</h3>
+      <p class="text-muted small m-0">Set course details, credits, and total planned classes target</p>
+    </div>
     <a href="{% url 'core:course_list' %}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left me-1"></i> Back to List
+      <i class="bi bi-arrow-left me-1"></i> Back to Courses
     </a>
   </div>
 
-  <div class="card p-4">
+  <div class="card p-4 shadow-sm border-0">
     <form method="post">
       {% csrf_token %}
       <div class="row g-3">
@@ -18,10 +21,6 @@
           {{ form.code }}
         </div>
         <div class="col-md-6">
-          <label class="form-label fw-semibold small">Credits</label>
-          {{ form.credits }}
-        </div>
-        <div class="col-12">
           <label class="form-label fw-semibold small">Course Title</label>
           {{ form.title }}
         </div>
@@ -33,13 +32,19 @@
           <label class="form-label fw-semibold small">Assigned Teacher</label>
           {{ form.teacher }}
         </div>
-        <div class="col-12">
-          <label class="form-label fw-semibold small">Prerequisites</label>
-          {{ form.prerequisites }}
+        <div class="col-md-6">
+          <label class="form-label fw-semibold small">Credits</label>
+          {{ form.credits }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold small">Total Planned Classes (Semester Target)</label>
+          {{ form.total_planned_classes }}
         </div>
       </div>
       <div class="mt-4 text-end">
-        <button type="submit" class="btn btn-primary px-4 fw-semibold">Save Course</button>
+        <button type="submit" class="btn btn-primary px-4 fw-semibold">
+          <i class="bi bi-check-circle-fill me-1"></i> Save Changes
+        </button>
       </div>
     </form>
   </div>

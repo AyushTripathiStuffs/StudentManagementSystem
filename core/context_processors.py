@@ -25,7 +25,7 @@ def notification_context(request):
             broadcast_filter |= Q(target_audience=Notification.TargetAudience.STAFF)
 
         user_notifications = Notification.objects.filter(
-            query | (Q(recipient__isnull=True) & broadcast_filter)
+            (query | (Q(recipient__isnull=True) & broadcast_filter)) & Q(is_hidden=False)
         ).distinct()
 
         unread_count = user_notifications.filter(is_read=False).count()

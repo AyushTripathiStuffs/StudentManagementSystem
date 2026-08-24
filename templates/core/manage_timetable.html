@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold m-0">Master Class Schedule Creator</h3>
+            <p class="text-muted small m-0">Automated :15 start and :10 end minute alignment</p>
+        </div>
+        <a href="{% url 'core:schedule_extra_class' %}" class="btn btn-warning text-dark fw-bold">
+            <i class="bi bi-calendar-plus-fill me-1"></i> Schedule Extra Class
+        </a>
+    </div>
+
+    <div class="row g-4">
+        <!-- Form Side -->
+        <div class="col-lg-4">
+            <div class="card p-4 shadow-sm border-0">
+                <h5 class="fw-bold mb-3">Add Class Slot</h5>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex flex-column gap-3">
+                        <div>
+                            <label class="form-label fw-semibold small">Select Course</label>
+                            {{ form.course }}
+                        </div>
+                        <div>
+                            <label class="form-label fw-semibold small">Academic Session</label>
+                            {{ form.academic_session }}
+                        </div>
+                        <div>
+                            <label class="form-label fw-semibold small">Class Type</label>
+                            {{ form.class_type }}
+                        </div>
+                        <div>
+                            <label class="form-label fw-semibold small">Select Starting Hour</label>
+                            {{ form.start_hour }}
+                        </div>
+                        <div>
+                            <label class="form-label fw-semibold small">Day of Week</label>
+                            {{ form.day }}
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="form-label fw-semibold small">Start Time (:15)</label>
+                                {{ form.start_time }}
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-semibold small">End Time (:10)</label>
+                                {{ form.end_time }}
+                            </div>
+                        </div>
+                        <div>
+                            <label class="form-label fw-semibold small">Room / Lab Venue</label>
+                            {{ form.room_number }}
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 fw-semibold mt-2">
+                            <i class="bi bi-calendar-plus-fill me-1"></i> Save Schedule Slot
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Active Schedules Table Side -->
+        <div class="col-lg-8">
+            <div class="card p-3 shadow-sm border-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Day</th>
+                                <th>Type</th>
+                                <th>Timing</th>
+                                <th>Course</th>
+                                <th>Faculty</th>
+                                <th>Room</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sched in schedules %}
+                            <tr>
+                                <td class="fw-bold">{{ sched.get_day_display }}</td>
+                                <td>
+                                    {% if sched.class_type == 'PRACTICAL' %}
+                                    <span class="badge bg-warning text-dark border">Lab (2 hrs)</span>
+                                    {% else %}
+                                    <span class="badge bg-info-subtle text-info-emphasis border">Lecture</span>
+                                    {% endif %}
+                                </td>
+                                <td><span
+                                        class="badge bg-light text-dark border fw-bold">{{ sched.start_time|time:"H:i" }}
+                                        - {{ sched.end_time|time:"H:i" }}</span></td>
+                                <td><strong>{{ sched.course.code }}</strong> - {{ sched.course.title }}</td>
+                                <td>{{ sched.course.teacher.user.get_full_name|default:"Unassigned" }}</td>
+                                <td><span
+                                        class="badge bg-primary-subtle text-primary fw-bold">{{ sched.room_number }}</span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">No schedules generated yet.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function calculateTiming() {
+        const startHourSelect = document.getElementById('id_start_hour');
+        const typeSelect = document.getElementById('id_class_type');
+        const startTimeInput = document.getElementById('id_start_time');
+        const endTimeInput = document.getElementById('id_end_time');
+
+        if (startHourSelect.value) {
+            const startHour = parseInt(startHourSelect.value, 10);
+            const formattedStartHour = String(startHour).padStart(2, '0');
+
+            // Automatically set start time to XX:15
+            startTimeInput.value = `${formattedStartHour}:15`;
+
+            // 1 hour for Lecture (ends at (X+1):10), 2 hours for Practical (ends at (X+2):10)
+            const addHours = (typeSelect.value === 'PRACTICAL') ? 2 : 1;
+            const endHour = (startHour + addHours) % 24;
+            const formattedEndHour = String(endHour).padStart(2, '0');
+
+            // Automatically set end time to YY:10
+            endTimeInput.value = `${formattedEndHour}:10`;
+        }
+    }
+
+    // Run initial calculation on page load
+    document.addEventListener('DOMContentLoaded', calculateTiming);
+</script>
+{% endblock %}

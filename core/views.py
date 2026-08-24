@@ -6,7 +6,7 @@ from django.db.models import Count, Q
 from django.forms import formset_factory
 from .models import Department, AcademicSession, Teacher, Student, Course, Enrollment, Attendance
 from .forms import (
-    CourseEnrollmentForm, DepartmentForm, AcademicSessionForm, CourseForm, 
+    CourseEnrollmentForm, DepartmentForm, AcademicSessionForm, CourseForm, ExtraClassForm, 
     StudentForm, TeacherForm, AttendanceFilterForm, StudentAttendanceForm, BroadcastNotificationForm
 )
 from accounts.models import User
@@ -14,9 +14,14 @@ from .models import Notification,CourseApplication
 from django.utils import timezone
 import secrets
 import string
-from django.core.mail import send_mail
-from django.conf import settings
-
+from datetime import date
+from .models import Timetable
+from .forms import TimetableForm
+from datetime import date, datetime, timedelta
+from django.utils import timezone
+from .models import Course, Enrollment, Attendance, Timetable
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 
 def admin_required(user):
     return user.is_authenticated and (user.role == User.Role.ADMIN or user.is_superuser)
@@ -78,46 +83,26 @@ def student_create(request):
         form = StudentForm(request.POST)
         if form.is_valid():
             with transaction.atomic():
-                temp_password = generate_temp_password(5)
-                username = form.cleaned_data['username']
-                email = form.cleaned_data['email']
-                first_name = form.cleaned_data['first_name']
-
                 user = User.objects.create_user(
-                    username=username,
-                    email=email,
-                    first_name=first_name,
+                    username=form.cleaned_data['username'],
+                    email=form.cleaned_data['email'],
+                    first_name=form.cleaned_data['first_name'],
                     last_name=form.cleaned_data['last_name'],
-                    password=temp_password,
+                    password=form.cleaned_data['password'],
                     role=User.Role.STUDENT
                 )
-
                 student = form.save(commit=False)
                 student.user = user
                 student.save()
 
-                subject = "Your iSchool Student Portal Account Details"
-                message = (
-                    f"Hello {first_name},\n\n"
-                    f"Your student account has been created by the administrator.\n\n"
-                    f"Username: {username}\n"
-                    f"Temporary Password: {temp_password}\n\n"
-                    f"Please log in and update your password from your profile settings. "
-                    f"Note: Password changes are strictly limited to 2 times for account security."
-                )
-                try:
-                    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email], fail_silently=True)
-                except Exception:
-                    pass
-
                 Notification.objects.create(
                     recipient=user,
-                    title="Account Created & Temporary Credentials",
-                    message=f"Welcome {first_name}! Your roll number is {student.roll_number}. You may change your temporary password up to 2 times.",
+                    title="Account Created",
+                    message=f"Welcome {user.first_name}! Your account has been registered with Roll Number {student.roll_number}.",
                     notification_type=Notification.NotificationType.VERIFICATION
                 )
 
-            messages.success(request, f"Student account created. Temporary 5-char password ({temp_password}) generated and dispatched to {email}.")
+            messages.success(request, f"Student {user.get_full_name()} added successfully.")
             return redirect('core:student_list')
     else:
         form = StudentForm()
@@ -136,9 +121,11 @@ def student_update(request, pk):
                 user.email = form.cleaned_data['email']
                 user.first_name = form.cleaned_data['first_name']
                 user.last_name = form.cleaned_data['last_name']
+                if form.cleaned_data.get('password'):
+                    user.set_password(form.cleaned_data['password'])
                 user.save()
                 form.save()
-            messages.success(request, "Student details updated.")
+            messages.success(request, "Student updated successfully.")
             return redirect('core:student_list')
     else:
         form = StudentForm(instance=student)
@@ -168,39 +155,19 @@ def teacher_create(request):
         form = TeacherForm(request.POST)
         if form.is_valid():
             with transaction.atomic():
-                temp_password = generate_temp_password(5)
-                username = form.cleaned_data['username']
-                email = form.cleaned_data['email']
-                first_name = form.cleaned_data['first_name']
-
                 user = User.objects.create_user(
-                    username=username,
-                    email=email,
-                    first_name=first_name,
+                    username=form.cleaned_data['username'],
+                    email=form.cleaned_data['email'],
+                    first_name=form.cleaned_data['first_name'],
                     last_name=form.cleaned_data['last_name'],
-                    password=temp_password,
+                    password=form.cleaned_data['password'],
                     role=User.Role.TEACHER
                 )
-
                 teacher = form.save(commit=False)
                 teacher.user = user
                 teacher.save()
 
-                subject = "Your iSchool Faculty Account Details"
-                message = (
-                    f"Hello {first_name},\n\n"
-                    f"Your faculty account has been created by the administrator.\n\n"
-                    f"Username: {username}\n"
-                    f"Temporary Password: {temp_password}\n\n"
-                    f"Please log in and update your password from your profile settings. "
-                    f"Note: Password changes are limited to 2 times for security."
-                )
-                try:
-                    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email], fail_silently=True)
-                except Exception:
-                    pass
-
-            messages.success(request, f"Faculty account created. Temporary password ({temp_password}) sent to {email}.")
+            messages.success(request, f"Teacher {user.get_full_name()} added successfully.")
             return redirect('core:teacher_list')
     else:
         form = TeacherForm()
@@ -219,9 +186,11 @@ def teacher_update(request, pk):
                 user.email = form.cleaned_data['email']
                 user.first_name = form.cleaned_data['first_name']
                 user.last_name = form.cleaned_data['last_name']
+                if form.cleaned_data.get('password'):
+                    user.set_password(form.cleaned_data['password'])
                 user.save()
                 form.save()
-            messages.success(request, "Faculty details updated.")
+            messages.success(request, "Teacher details updated successfully.")
             return redirect('core:teacher_list')
     else:
         form = TeacherForm(instance=teacher)
@@ -265,11 +234,11 @@ def course_update(request, pk):
         form = CourseForm(request.POST, instance=course)
         if form.is_valid():
             form.save()
-            messages.success(request, "Course updated successfully.")
+            messages.success(request, f"Course '{course.code}' updated successfully.")
             return redirect('core:course_list')
     else:
         form = CourseForm(instance=course)
-    return render(request, 'core/course_form.html', {'form': form, 'title': 'Edit Course'})
+    return render(request, 'core/course_form.html', {'form': form, 'title': f'Edit Course: {course.code}'})
 
 
 @login_required
@@ -289,18 +258,75 @@ def mark_attendance(request):
     AttendanceFormSet = formset_factory(StudentAttendanceForm, extra=0)
 
     course_id = request.GET.get('course')
-    selected_date = request.GET.get('date')
+    selected_date_str = request.GET.get('date')
+
+    now = timezone.localtime(timezone.now())
+    today = now.date()
+    current_time = now.time()
+
+    is_admin = request.user.role == User.Role.ADMIN or request.user.is_superuser
+    is_teacher = request.user.role == User.Role.TEACHER
 
     course = None
     formset = None
     students_list = []
+    is_locked_for_teacher = False
+    is_too_early = False
+    allowed_start_time = None
 
-    if course_id and selected_date:
+    if course_id and selected_date_str:
+        try:
+            selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            selected_date = today
+
+        # Rule 1: No future dates
+        if selected_date > today:
+            messages.error(request, "Attendance cannot be marked or viewed for future dates.")
+            return redirect('core:mark_attendance')
+
         course = get_object_or_404(Course, id=course_id)
-        enrollments = Enrollment.objects.filter(course=course).select_related('student__user')
-        existing_records = {att.student_id: att for att in Attendance.objects.filter(course=course, date=selected_date)}
+
+        # Fetch timetable slot to determine end time
+        day_name = selected_date.strftime('%A').upper()
+        schedule_slot = Timetable.objects.filter(course=course, day=day_name).first()
+
+        # Rule 2: Enforce 10-minute early restriction on today's classes
+        if selected_date == today and schedule_slot:
+            end_dt = datetime.combine(today, schedule_slot.end_time)
+            opening_dt = end_dt - timedelta(minutes=10)
+            allowed_start_time = opening_dt.time()
+
+            if current_time < allowed_start_time and not is_admin:
+                is_too_early = True
+
+        # Rule 3: Lock past dates for teachers
+        is_past_date = selected_date < today
+        if is_teacher and is_past_date:
+            is_locked_for_teacher = True
+
+        # Total Lock State
+        is_disabled = is_locked_for_teacher or is_too_early
+
+        enrollments = Enrollment.objects.filter(course=course).select_related('student__user').order_by('student__roll_number')
+        existing_records = {
+            att.student_id: att 
+            for att in Attendance.objects.filter(course=course, date=selected_date)
+        }
 
         if request.method == 'POST':
+            if selected_date > today:
+                messages.error(request, "Cannot submit attendance for future dates.")
+                return redirect('core:mark_attendance')
+
+            if is_too_early:
+                messages.error(request, f"Too early! Attendance opens at {allowed_start_time.strftime('%I:%M %p')} (10 mins before class end).")
+                return redirect(f"{request.path}?course={course_id}&date={selected_date_str}")
+
+            if is_locked_for_teacher:
+                messages.error(request, "Teachers can only mark attendance for today. Contact Admin for past changes.")
+                return redirect(f"{request.path}?course={course_id}&date={selected_date_str}")
+
             formset = AttendanceFormSet(request.POST)
             if formset.is_valid():
                 teacher_profile = getattr(request.user, 'teacher_profile', None)
@@ -319,8 +345,8 @@ def mark_attendance(request):
                                 'marked_by': teacher_profile,
                             }
                         )
-                messages.success(request, f"Attendance saved for {course.code} on {selected_date}.")
-                return redirect(f"{request.path}?course={course_id}&date={selected_date}")
+                messages.success(request, f"Attendance saved for {course.code} on {selected_date_str}.")
+                return redirect(f"{request.path}?course={course_id}&date={selected_date_str}")
         else:
             initial_data = []
             for enrollment in enrollments:
@@ -338,12 +364,16 @@ def mark_attendance(request):
         'filter_form': filter_form,
         'formset': formset,
         'course': course,
-        'selected_date': selected_date,
+        'selected_date': selected_date_str,
+        'today': today.strftime('%Y-%m-%d'),
         'students_list': students_list,
         'form_and_students': zip(formset.forms, students_list) if formset else [],
+        'is_locked_for_teacher': is_locked_for_teacher,
+        'is_too_early': is_too_early,
+        'allowed_start_time': allowed_start_time,
+        'is_disabled': is_locked_for_teacher or is_too_early,
     }
     return render(request, 'core/mark_attendance.html', context)
-
 
 @login_required
 def attendance_report(request):
@@ -466,8 +496,40 @@ def course_roster_view(request, course_id):
 @user_passes_test(teacher_or_admin_required)
 def take_course_attendance(request, course_id):
     course = get_object_or_404(Course, id=course_id)
-    selected_date = request.GET.get('date', timezone.now().strftime('%Y-%m-%d'))
-    
+    now = timezone.localtime(timezone.now())
+    today = now.date()
+    current_time = now.time()
+
+    selected_date_str = request.GET.get('date', today.strftime('%Y-%m-%d'))
+    try:
+        selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        selected_date = today
+
+    is_admin = request.user.role == User.Role.ADMIN or request.user.is_superuser
+    is_teacher = request.user.role == User.Role.TEACHER
+
+    if is_teacher and course.teacher != getattr(request.user, 'teacher_profile', None):
+        messages.error(request, "Unauthorized access to course attendance.")
+        return redirect('core:teacher_courses')
+
+    day_name = selected_date.strftime('%A').upper()
+    schedule_slot = Timetable.objects.filter(course=course, day=day_name).first()
+
+    is_future_date = selected_date > today
+    is_past_date = selected_date < today
+    is_too_early = False
+    allowed_start_time = None
+
+    if selected_date == today and schedule_slot:
+        end_dt = datetime.combine(today, schedule_slot.end_time)
+        opening_dt = end_dt - timedelta(minutes=10)
+        allowed_start_time = opening_dt.time()
+        if current_time < allowed_start_time:
+            is_too_early = True
+
+    is_locked_for_teacher = (is_teacher and is_past_date) or is_too_early or is_future_date
+
     enrollments = Enrollment.objects.filter(course=course).select_related('student__user').order_by('student__roll_number')
     existing_attendance = {
         att.student_id: att 
@@ -475,6 +537,18 @@ def take_course_attendance(request, course_id):
     }
 
     if request.method == 'POST':
+        if is_future_date:
+            messages.error(request, "Attendance cannot be submitted for future dates.")
+            return redirect(f"{request.path}?date={today.strftime('%Y-%m-%d')}")
+
+        if is_too_early:
+            messages.error(request, f"Too early! Attendance opens at {allowed_start_time.strftime('%I:%M %p')} (10 mins before class end).")
+            return redirect(f"{request.path}?date={selected_date_str}")
+
+        if is_teacher and is_past_date:
+            messages.error(request, "Teachers can only mark attendance for today's classes.")
+            return redirect(f"{request.path}?date={selected_date_str}")
+
         with transaction.atomic():
             teacher = getattr(request.user, 'teacher_profile', None)
             for enrollment in enrollments:
@@ -492,32 +566,32 @@ def take_course_attendance(request, course_id):
                         'marked_by': teacher,
                     }
                 )
-        messages.success(request, f"Attendance saved for {course.code} on {selected_date}.")
-        return redirect(f"{request.path}?date={selected_date}")
-    
+
+        messages.success(request, f"Attendance successfully saved for {course.code} on {selected_date_str}.")
+        return redirect(f"{request.path}?date={selected_date_str}")
+
     student_records = []
     for enrollment in enrollments:
         student = enrollment.student
         existing = existing_attendance.get(student.id)
-        
-        # Calculate current cumulative percentage
-        total_course_classes = Attendance.objects.filter(course=course).values('date').distinct().count()
-        attended = Attendance.objects.filter(course=course, student=student, status__in=[Attendance.Status.PRESENT, Attendance.Status.LATE]).count()
-        pct = round((attended / total_course_classes * 100), 1) if total_course_classes > 0 else 100.0
-
         student_records.append({
             'student': student,
             'status': existing.status if existing else Attendance.Status.PRESENT,
             'remarks': existing.remarks if existing else '',
-            'current_pct': pct
         })
 
     context = {
         'course': course,
-        'selected_date': selected_date,
+        'today': today.strftime('%Y-%m-%d'),
+        'selected_date': selected_date_str,
+        'schedule_slot': schedule_slot,
         'student_records': student_records,
         'status_choices': Attendance.Status.choices,
-        'is_already_marked': bool(existing_attendance),
+        'is_locked_for_teacher': is_locked_for_teacher,
+        'is_too_early': is_too_early,
+        'allowed_start_time': allowed_start_time,
+        'is_past_date': is_past_date,
+        'is_admin': is_admin,
     }
     return render(request, 'core/take_attendance.html', context)
 
@@ -831,7 +905,6 @@ def admin_course_applications(request):
                     academic_session=application.academic_session
                 ).delete()
 
-                # Send rejection notification with remarks
                 reason_text = f" Reason: {remarks}" if remarks else ""
                 Notification.objects.create(
                     recipient=application.student.user,
@@ -857,3 +930,291 @@ def generate_temp_password(length=5):
     """Generates a random 5-character alphanumeric temporary password."""
     chars = string.ascii_letters + string.digits
     return ''.join(secrets.choice(chars) for _ in range(length))
+
+@login_required
+@user_passes_test(admin_required)
+def manage_timetable(request):
+    sessions = AcademicSession.objects.all().order_by('-is_current', '-start_date')
+    selected_session_id = request.GET.get('session')
+
+    if not selected_session_id:
+        active_sess = AcademicSession.objects.filter(is_current=True).first()
+        selected_session_id = str(active_sess.id) if active_sess else None
+
+    schedules = Timetable.objects.select_related('course__teacher__user', 'course__department', 'academic_session')
+    if selected_session_id:
+        schedules = schedules.filter(academic_session_id=selected_session_id)
+
+    if request.method == 'POST':
+        form = TimetableForm(request.POST)
+        if form.is_valid():
+            timetable = form.save()
+            if timetable.course.teacher:
+                Notification.objects.create(
+                    recipient=timetable.course.teacher.user,
+                    title="New Class Schedule Assigned",
+                    message=f"You have been assigned {timetable.course.code} on {timetable.get_day_display()} ({timetable.start_time.strftime('%H:%M')} - {timetable.end_time.strftime('%H:%M')}) in Room {timetable.room_number}.",
+                    notification_type=Notification.NotificationType.GENERAL
+                )
+            messages.success(request, "Class timetable slot added successfully.")
+            return redirect(f"{request.path}?session={selected_session_id}")
+    else:
+        form = TimetableForm()
+
+    context = {
+        'form': form,
+        'schedules': schedules,
+        'sessions': sessions,
+        'selected_session_id': selected_session_id,
+        'days': Timetable.DayOfWeek.choices,
+    }
+    return render(request, 'core/manage_timetable.html', context)
+
+@login_required
+def teacher_schedule_view(request):
+    if not (request.user.role == User.Role.TEACHER or hasattr(request.user, 'teacher_profile')):
+        messages.error(request, "Only faculty members can access this schedule.")
+        return redirect('core:dashboard')
+
+    teacher = request.user.teacher_profile
+    schedules = Timetable.objects.filter(
+        course__teacher=teacher
+    ).select_related('course__department', 'academic_session').order_by('day', 'start_time')
+
+    schedule_by_day = {}
+    for day_code, day_label in Timetable.DayOfWeek.choices:
+        schedule_by_day[day_label] = [s for s in schedules if s.day == day_code]
+
+    return render(request, 'core/teacher_schedule.html', {'schedule_by_day': schedule_by_day})
+
+@login_required
+def student_timetable_view(request):
+    if not (request.user.role == User.Role.STUDENT or hasattr(request.user, 'student_profile')):
+        messages.error(request, "Only enrolled students can view this schedule.")
+        return redirect('core:dashboard')
+
+    student = request.user.student_profile
+    active_session = AcademicSession.objects.filter(is_current=True).first()
+
+    enrolled_course_ids = Enrollment.objects.filter(
+        student=student,
+        academic_session=active_session
+    ).values_list('course_id', flat=True)
+
+    schedules = Timetable.objects.filter(
+        course_id__in=enrolled_course_ids,
+        academic_session=active_session
+    ).select_related('course__teacher__user', 'course__department').order_by('day', 'start_time')
+
+    attendance_records = Attendance.objects.filter(student=student)
+    
+    latest_status_by_course = {}
+    for att in attendance_records.order_by('date'):
+        latest_status_by_course[att.course_id] = att.status
+
+    timetable_grid = []
+    for sched in schedules:
+        st = latest_status_by_course.get(sched.course_id, 'NO_RECORD')
+        
+        if st in [Attendance.Status.PRESENT, Attendance.Status.LATE]:
+            indicator = 'green'
+        elif st == Attendance.Status.ABSENT:
+            indicator = 'red'
+        else:
+            indicator = 'gray'
+
+        timetable_grid.append({
+            'schedule': sched,
+            'status_color': indicator,
+            'status_label': st,
+        })
+
+    schedule_by_day = {}
+    for day_code, day_label in Timetable.DayOfWeek.choices:
+        schedule_by_day[day_label] = [item for item in timetable_grid if item['schedule'].day == day_code]
+
+    context = {
+        'student': student,
+        'active_session': active_session,
+        'schedule_by_day': schedule_by_day,
+    }
+    return render(request, 'core/student_timetable.html', context)
+
+@login_required
+@user_passes_test(admin_required)
+def schedule_extra_class(request):
+    if request.method == 'POST':
+        form = ExtraClassForm(request.POST)
+        if form.is_valid():
+            extra_slot = form.save(commit=False)
+            extra_slot.is_extra_class = True
+            
+            day_name = extra_slot.specific_date.strftime('%A').upper()
+            extra_slot.day = day_name
+            extra_slot.save()
+
+            if extra_slot.course.teacher:
+                Notification.objects.create(
+                    recipient=extra_slot.course.teacher.user,
+                    title="Extra / Makeup Class Scheduled",
+                    message=f"An extra class for {extra_slot.course.code} is scheduled on {extra_slot.specific_date} ({extra_slot.start_time.strftime('%H:%M')} - {extra_slot.end_time.strftime('%H:%M')}) in Room {extra_slot.room_number}.",
+                    notification_type=Notification.NotificationType.GENERAL
+                )
+
+            enrolled_student_users = User.objects.filter(
+                student_profile__enrollments__course=extra_slot.course,
+                student_profile__enrollments__academic_session=extra_slot.academic_session
+            )
+            
+            notifications = [
+                Notification(
+                    recipient=user,
+                    title=f"Extra Class Notice: {extra_slot.course.code}",
+                    message=f"A makeup class for {extra_slot.course.title} has been scheduled for {extra_slot.specific_date} at {extra_slot.start_time.strftime('%H:%M')} in Room {extra_slot.room_number}.",
+                    notification_type=Notification.NotificationType.GENERAL
+                )
+                for user in enrolled_student_users
+            ]
+            Notification.objects.bulk_create(notifications)
+
+            messages.success(request, f"Extra class for {extra_slot.course.code} scheduled on {extra_slot.specific_date}. Notifications sent!")
+            return redirect('core:manage_timetable')
+    else:
+        form = ExtraClassForm()
+
+    return render(request, 'core/schedule_extra_class.html', {'form': form})
+
+@login_required
+def notification_list(request):
+    user = request.user
+    query = Q(recipient=user)
+    broadcast_role_filter = Q(target_audience=Notification.TargetAudience.ALL)
+
+    if user.role == User.Role.TEACHER:
+        broadcast_role_filter |= Q(target_audience=Notification.TargetAudience.TEACHERS)
+        if hasattr(user, 'teacher_profile'):
+            dept = user.teacher_profile.department
+            broadcast_role_filter &= (Q(department=dept) | Q(department__isnull=True))
+
+    elif user.role == User.Role.STUDENT:
+        broadcast_role_filter |= Q(target_audience=Notification.TargetAudience.STUDENTS)
+        if hasattr(user, 'student_profile'):
+            dept = user.student_profile.department
+            broadcast_role_filter &= (Q(department=dept) | Q(department__isnull=True))
+
+    elif user.role == User.Role.ADMIN or user.is_superuser:
+        broadcast_role_filter |= Q(target_audience=Notification.TargetAudience.STAFF)
+
+    user_notifications = Notification.objects.filter(
+        (query | (Q(recipient__isnull=True) & broadcast_role_filter)) & Q(is_hidden=False)
+    ).distinct()
+
+    user_notifications.filter(is_read=False).update(is_read=True)
+
+    return render(request, 'core/notifications.html', {'notifications': user_notifications})
+
+
+@login_required
+@require_POST
+def hide_notification(request, pk):
+    notification = get_object_or_404(Notification, pk=pk)
+    
+    if notification.recipient and notification.recipient != request.user:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+
+    notification.is_hidden = True
+    notification.is_read = True
+    notification.save()
+
+    user = request.user
+    query = Q(recipient=user)
+    broadcast_role_filter = Q(target_audience=Notification.TargetAudience.ALL)
+
+    if user.role == User.Role.TEACHER:
+        broadcast_role_filter |= Q(target_audience=Notification.TargetAudience.TEACHERS)
+    elif user.role == User.Role.STUDENT:
+        broadcast_role_filter |= Q(target_audience=Notification.TargetAudience.STUDENTS)
+    elif user.role == User.Role.ADMIN or user.is_superuser:
+        broadcast_role_filter |= Q(target_audience=Notification.TargetAudience.STAFF)
+
+    remaining_unread = Notification.objects.filter(
+        (query | (Q(recipient__isnull=True) & broadcast_role_filter)) & Q(is_hidden=False, is_read=False)
+    ).distinct().count()
+
+    return JsonResponse({'status': 'success', 'unread_count': remaining_unread})
+
+@login_required
+@require_POST
+def hide_all_notifications(request):
+    user = request.user
+    query = Q(recipient=user)
+    broadcast_role_filter = Q(target_audience=Notification.TargetAudience.ALL)
+
+    if user.role == User.Role.TEACHER:
+        broadcast_role_filter |= Q(target_audience=Notification.TargetAudience.TEACHERS)
+    elif user.role == User.Role.STUDENT:
+        broadcast_role_filter |= Q(target_audience=Notification.TargetAudience.STUDENTS)
+    elif user.role == User.Role.ADMIN or user.is_superuser:
+        broadcast_role_filter |= Q(target_audience=Notification.TargetAudience.STAFF)
+
+    Notification.objects.filter(
+        (query | (Q(recipient__isnull=True) & broadcast_role_filter)) & Q(is_hidden=False)
+    ).update(is_hidden=True, is_read=True)
+
+    messages.success(request, "All notifications cleared.")
+    return redirect('core:notification_list')
+
+
+@login_required
+@user_passes_test(admin_required)
+def department_list(request):
+    departments = Department.objects.annotate(
+        student_count=Count('students', distinct=True),
+        teacher_count=Count('teachers', distinct=True),
+        course_count=Count('course', distinct=True)
+    ).order_by('name')
+
+    if request.method == 'POST':
+        form = DepartmentForm(request.POST)
+        if form.is_valid():
+            dept = form.save()
+            messages.success(request, f"Department '{dept.name} ({dept.code})' created successfully.")
+            return redirect('core:department_list')
+    else:
+        form = DepartmentForm()
+
+    context = {
+        'departments': departments,
+        'form': form,
+    }
+    return render(request, 'core/department_list.html', context)
+
+@login_required
+@user_passes_test(admin_required)
+def department_update(request, pk):
+    dept = get_object_or_404(Department, pk=pk)
+    if request.method == 'POST':
+        form = DepartmentForm(request.POST, instance=dept)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Department '{dept.code}' updated successfully.")
+            return redirect('core:department_list')
+    else:
+        form = DepartmentForm(instance=dept)
+    return render(request, 'core/department_form.html', {'form': form, 'title': f'Edit Department: {dept.code}'})
+
+@login_required
+@user_passes_test(admin_required)
+def department_delete(request, pk):
+    dept = get_object_or_404(Department, pk=pk)
+    
+    if dept.students.exists() or dept.teachers.exists() or dept.course_set.exists():
+        messages.error(request, f"Cannot delete '{dept.code}'! It has active students, teachers, or courses attached.")
+        return redirect('core:department_list')
+
+    if request.method == 'POST':
+        dept.delete()
+        messages.success(request, f"Department '{dept.name}' deleted successfully.")
+        return redirect('core:department_list')
+        
+    return render(request, 'core/confirm_delete.html', {'object': dept, 'title': f'Delete Department {dept.code}'})

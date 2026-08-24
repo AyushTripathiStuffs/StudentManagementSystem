@@ -37,9 +37,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',
     'accounts',
     'core',
-    'portal',
     'fees',
 ]
 
@@ -117,7 +117,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kolkata'
 
 USE_I18N = True
 
@@ -138,18 +138,4 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
-
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.smtp.EmailBackend',
-        'HOST': 'smtp.gmail.com',
-        'PORT': 465,
-        'USE_TLS': True,
-        'USERNAME': 'ayushtripathipersonal@gmail.com',
-        'PASSWORD': 'ylvhosjjzxpiicyu',
-    }
-}
-
-DEFAULT_FROM_EMAIL = 'iSchool Portal <ayushtripathipersonal@gmail.com>'

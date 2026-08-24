@@ -1,4 +1,5 @@
 from django.contrib import admin
+from .models import Timetable
 from .models import Department, AcademicSession, Teacher, Student, Course, Enrollment, Attendance, CourseApplication
 
 
@@ -48,11 +49,10 @@ class StudentAdmin(admin.ModelAdmin):
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ('code', 'title', 'department', 'teacher', 'credits')
-    list_filter = ('department', 'credits')
+    list_display = ('code', 'title', 'department', 'teacher', 'credits', 'total_planned_classes')
+    list_editable = ('total_planned_classes',)
     search_fields = ('code', 'title')
-    filter_horizontal = ('prerequisites',)
-    raw_id_fields = ('teacher',)
+    list_filter = ('department',)
 
 
 @admin.register(Enrollment)
@@ -77,3 +77,14 @@ class CourseApplicationAdmin(admin.ModelAdmin):
     list_filter = ('status', 'academic_session', 'course__department')
     search_fields = ('student__roll_number', 'student__user__first_name', 'course__code', 'course__title')
     raw_id_fields = ('student', 'course', 'reviewed_by')
+
+
+@admin.register(Timetable)
+class TimetableAdmin(admin.ModelAdmin):
+    list_display = ('course', 'get_teacher', 'day', 'start_time', 'end_time', 'room_number', 'academic_session')
+    list_filter = ('day', 'academic_session', 'course__department')
+    search_fields = ('course__code', 'course__title', 'room_number', 'course__teacher__user__first_name')
+
+    @admin.display(description='Faculty')
+    def get_teacher(self, obj):
+        return obj.course.teacher.user.get_full_name() if obj.course.teacher else 'Unassigned'

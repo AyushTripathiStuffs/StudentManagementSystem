@@ -2,13 +2,15 @@
 
 {% block content %}
 <div class="container-fluid">
-  <div class="mb-4">
-    <h3 class="fw-bold">Mark Attendance</h3>
-    <p class="text-muted small">Select course and date to record daily presence</p>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="fw-bold m-0">Mark Attendance</h3>
+      <p class="text-muted small m-0">Select course and date to record daily presence</p>
+    </div>
   </div>
 
-  <!-- Filter Card -->
-  <div class="card p-4 mb-4">
+  <!-- Filter Form -->
+  <div class="card p-4 shadow-sm border-0 mb-4">
     <form method="get" class="row g-3 align-items-end">
       <div class="col-md-5">
         <label class="form-label fw-semibold small">Select Course</label>
@@ -16,57 +18,120 @@
       </div>
       <div class="col-md-5">
         <label class="form-label fw-semibold small">Session Date</label>
-        {{ filter_form.date }}
+        <input type="date" name="date" class="form-control" value="{{ selected_date|default:today }}" max="{{ today }}"
+          required>
       </div>
       <div class="col-md-2">
-        <button type="submit" class="btn btn-primary w-100 fw-semibold">Load Session</button>
+        <button type="submit" class="btn btn-primary w-100 fw-semibold">
+          <i class="bi bi-search me-1"></i> Load Session
+        </button>
       </div>
     </form>
   </div>
 
+  <!-- Status Alert Banners -->
+  {% if is_too_early %}
+  <div class="alert alert-warning shadow-sm border d-flex align-items-center mb-4">
+    <i class="bi bi-clock-history fs-5 me-2"></i>
+    <div>
+      <strong>Early Window Locked:</strong> Attendance opens at <strong>{{ allowed_start_time|time:"H:i" }}</strong> (10
+      minutes before class end).
+    </div>
+  </div>
+  {% elif is_locked_for_teacher %}
+  <div class="alert alert-danger shadow-sm border d-flex align-items-center mb-4">
+    <i class="bi bi-lock-fill fs-5 me-2"></i>
+    <div>
+      <strong>Access Restricted:</strong> Teachers can only mark attendance for the current date (Today: {{ today }}).
+      Contact an Administrator to modify past records.
+    </div>
+  </div>
+  {% endif %}
+
   {% if formset %}
   <!-- Attendance Table Card -->
-  <div class="card p-4">
+  <div class="card p-4 shadow-sm border-0">
     <div class="d-flex justify-content-between align-items-center mb-3">
-      <h5 class="fw-bold m-0">{{ course.code }} - {{ course.title }} ({{ selected_date }})</h5>
-      <span class="badge bg-light text-dark border">{{ students_list|length }} Enrolled Students</span>
+      <div>
+        <h5 class="fw-bold m-0">{{ course.code }} - {{ course.title }} ({{ selected_date }})</h5>
+        <span class="text-muted small">{{ students_list|length }} Enrolled Students</span>
+      </div>
+
+      {% if not is_disabled %}
+      <div class="btn-group btn-group-sm">
+        <button type="button" class="btn btn-outline-success fw-semibold" onclick="markAll('PRESENT')">
+          <i class="bi bi-check-all me-1"></i> Mark All Present
+        </button>
+        <button type="button" class="btn btn-outline-danger fw-semibold" onclick="markAll('ABSENT')">
+          <i class="bi bi-x-all me-1"></i> Mark All Absent
+        </button>
+      </div>
+      {% endif %}
     </div>
 
     <form method="post">
       {% csrf_token %}
       {{ formset.management_form }}
+
       <div class="table-responsive">
         <table class="table table-hover align-middle">
           <thead class="table-light">
             <tr>
-              <th style="width: 15%;">Roll Number</th>
-              <th style="width: 25%;">Student Name</th>
-              <th style="width: 25%;">Status</th>
-              <th style="width: 35%;">Remarks</th>
+              <th style="width: 20%;">Roll Number</th>
+              <th style="width: 35%;">Student Name</th>
+              <th style="width: 20%;">Status</th>
+              <th style="width: 25%;">Remarks</th>
             </tr>
           </thead>
           <tbody>
             {% for form, student in form_and_students %}
             <tr>
-              <td class="fw-bold">
+              <td class="fw-bold text-dark">
                 {{ form.student_id }}
                 {{ student.roll_number }}
               </td>
-              <td>{{ student.user.get_full_name|default:student.user.username }}</td>
-              <td>{{ form.status }}</td>
-              <td>{{ form.remarks }}</td>
+              <td class="fw-semibold">{{ student.user.get_full_name|default:student.user.username }}</td>
+              <td>
+                <select name="form-{{ forloop.counter0 }}-status" class="form-select form-select-sm status-dropdown"
+                  {% if is_disabled %}disabled{% endif %}>
+                  <option value="PRESENT" {% if form.initial.status == 'PRESENT' %}selected{% endif %}>Present</option>
+                  <option value="ABSENT" {% if form.initial.status == 'ABSENT' %}selected{% endif %}>Absent</option>
+                  <option value="LATE" {% if form.initial.status == 'LATE' %}selected{% endif %}>Late</option>
+                  <option value="EXCUSED" {% if form.initial.status == 'EXCUSED' %}selected{% endif %}>Excused</option>
+                </select>
+              </td>
+              <td>
+                <input type="text" name="form-{{ forloop.counter0 }}-remarks" value="{{ form.initial.remarks }}"
+                  class="form-control form-control-sm" placeholder="Optional remarks"
+                  {% if is_disabled %}disabled{% endif %}>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="4" class="text-center text-muted py-4">No enrolled students found for this course.</td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
-      <div class="mt-3 text-end">
+
+      {% if not is_disabled and students_list %}
+      <div class="mt-4 text-end">
         <button type="submit" class="btn btn-success px-4 fw-semibold">
-          <i class="bi bi-check2-circle me-1"></i> Save Attendance
+          <i class="bi bi-check-circle-fill me-1"></i> Save Attendance
         </button>
       </div>
+      {% endif %}
     </form>
   </div>
   {% endif %}
 </div>
+
+<script>
+  function markAll(statusVal) {
+    document.querySelectorAll('.status-dropdown').forEach(select => {
+      select.value = statusVal;
+    });
+  }
+</script>
 {% endblock %}

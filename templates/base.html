@@ -85,70 +85,112 @@
           <span class="fs-5 fw-bold text-dark">iSchool</span>
         </div>
         <ul class="nav nav-pills flex-column">
-          <!-- Common to All -->
+          <!-- Dashboard -->
           <li class="nav-item">
-            <a href="{% url 'core:dashboard' %}" class="nav-link">
+            <a href="{% url 'core:dashboard' %}"
+              class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
               <i class="bi bi-grid-fill"></i> Dashboard
             </a>
           </li>
 
+          <!-- Admin / Superuser Specific Links -->
           {% if user.role == 'ADMIN' or user.is_superuser %}
           <li class="nav-item">
-            <a href="{% url 'core:student_list' %}" class="nav-link">
+            <a href="{% url 'core:student_list' %}"
+              class="nav-link {% if request.resolver_match.url_name == 'student_list' or request.resolver_match.url_name == 'student_create' or request.resolver_match.url_name == 'student_update' %}active{% endif %}">
               <i class="bi bi-people-fill"></i> Students
             </a>
           </li>
           <li class="nav-item">
-            <a href="{% url 'core:teacher_list' %}" class="nav-link">
+            <a href="{% url 'core:teacher_list' %}"
+              class="nav-link {% if request.resolver_match.url_name == 'teacher_list' or request.resolver_match.url_name == 'teacher_create' or request.resolver_match.url_name == 'teacher_update' %}active{% endif %}">
               <i class="bi bi-person-badge-fill"></i> Teachers
             </a>
           </li>
           <li class="nav-item">
-            <a href="{% url 'core:course_list' %}" class="nav-link">
+            <a href="{% url 'core:course_list' %}"
+              class="nav-link {% if request.resolver_match.url_name == 'course_list' %}active{% endif %}">
               <i class="bi bi-book-fill"></i> Courses
             </a>
           </li>
           <li class="nav-item">
-            <a href="{% url 'core:admin_course_applications' %}" class="nav-link">
+            <a href="{% url 'core:admin_course_applications' %}"
+              class="nav-link {% if request.resolver_match.url_name == 'admin_course_applications' %}active{% endif %}">
               <i class="bi bi-patch-check-fill"></i> Course Approvals
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{% url 'core:manage_timetable' %}"
+              class="nav-link {% if request.resolver_match.url_name == 'manage_timetable' %}active{% endif %}">
+              <i class="bi bi-calendar-week-fill"></i> Timetable Creator
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{% url 'core:department_list' %}"
+              class="nav-link {% if request.resolver_match.url_name == 'department_list' or request.resolver_match.url_name == 'department_update' %}active{% endif %}">
+              <i class="bi bi-building-fill"></i> Departments
             </a>
           </li>
           {% endif %}
 
+          <!-- Non-Student (Teacher / Admin) Links -->
           {% if user.role != 'STUDENT' %}
           <li class="nav-item">
-            <a href="{% url 'core:mark_attendance' %}" class="nav-link">
+            <a href="{% url 'core:mark_attendance' %}"
+              class="nav-link {% if request.resolver_match.url_name == 'mark_attendance' or request.resolver_match.url_name == 'take_attendance' %}active{% endif %}">
               <i class="bi bi-calendar-check-fill"></i> Mark Attendance
             </a>
           </li>
           <li class="nav-item">
-            <a href="{% url 'core:teacher_courses' %}" class="nav-link">
+            <a href="{% url 'core:teacher_courses' %}"
+              class="nav-link {% if request.resolver_match.url_name == 'teacher_courses' or request.resolver_match.url_name == 'course_roster' %}active{% endif %}">
               <i class="bi bi-kanban-fill"></i> Courses & Attendance Hub
             </a>
           </li>
           {% endif %}
 
-          {% if user.role == 'STUDENT' %}
+          <!-- Teacher Specific Links -->
+          {% if user.role == 'TEACHER' %}
           <li class="nav-item">
-            <a href="{% url 'core:student_courses' %}" class="nav-link">
-              <i class="bi bi-journal-bookmark-fill"></i> My Courses & Attendance
-            </a>
-          </li>
-          <li class="nav-item">
-            <a href="{% url 'core:student_course_registration' %}" class="nav-link">
-              <i class="bi bi-pencil-square"></i> Apply for Courses
+            <a href="{% url 'core:teacher_schedule' %}"
+              class="nav-link {% if request.resolver_match.url_name == 'teacher_schedule' %}active{% endif %}">
+              <i class="bi bi-calendar2-range-fill"></i> My Teaching Agenda
             </a>
           </li>
           {% endif %}
 
+          <!-- Student Specific Links -->
+          {% if user.role == 'STUDENT' %}
           <li class="nav-item">
-            <a href="{% url 'core:attendance_report' %}" class="nav-link">
+            <a href="{% url 'core:student_courses' %}"
+              class="nav-link {% if request.resolver_match.url_name == 'student_courses' or request.resolver_match.url_name == 'student_course_detail' %}active{% endif %}">
+              <i class="bi bi-journal-bookmark-fill"></i> My Courses & Attendance
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{% url 'core:student_course_registration' %}"
+              class="nav-link {% if request.resolver_match.url_name == 'student_course_registration' %}active{% endif %}">
+              <i class="bi bi-pencil-square"></i> Apply for Courses
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{% url 'core:student_timetable' %}"
+              class="nav-link {% if request.resolver_match.url_name == 'student_timetable' %}active{% endif %}">
+              <i class="bi bi-calendar3"></i> Class Schedule & Room Info
+            </a>
+          </li>
+          {% endif %}
+
+          <!-- Shared Reports & Notifications -->
+          <li class="nav-item">
+            <a href="{% url 'core:attendance_report' %}"
+              class="nav-link {% if request.resolver_match.url_name == 'attendance_report' %}active{% endif %}">
               <i class="bi bi-file-earmark-bar-graph-fill"></i> Attendance Report
             </a>
           </li>
           <li class="nav-item">
             <a href="{% url 'core:notification_list' %}"
-              class="nav-link d-flex justify-content-between align-items-center">
+              class="nav-link d-flex justify-content-between align-items-center {% if request.resolver_match.url_name == 'notification_list' or request.resolver_match.url_name == 'broadcast_notification' %}active{% endif %}">
               <div>
                 <i class="bi bi-bell-fill"></i> Notifications
               </div>

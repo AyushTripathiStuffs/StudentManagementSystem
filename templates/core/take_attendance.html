@@ -2,114 +2,127 @@
 
 {% block content %}
 <div class="container-fluid" style="max-width: 1100px;">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h3 class="fw-bold m-0">Record Attendance: {{ course.code }}</h3>
-            <p class="text-muted small m-0">{{ course.title }}</p>
-        </div>
-        <a href="{% url 'core:course_roster' course.id %}" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-list-check me-1"></i> Course Roster
-        </a>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="fw-bold m-0">Daily Attendance Portal</h3>
+      <p class="text-muted small m-0">{{ course.code }} - {{ course.title }}</p>
+    </div>
+    <a href="{% url 'core:course_roster' course.id %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-list-check me-1"></i> Roster & Stats
+    </a>
+  </div>
+
+  <!-- Date Selection & Timing Lock Banners -->
+  <div class="card p-3 shadow-sm border-0 mb-4">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label fw-semibold small">Lecture Date</label>
+        <input type="date" name="date" class="form-control" value="{{ selected_date }}" max="{{ today }}" required>
+      </div>
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-outline-primary w-100 fw-semibold">
+          <i class="bi bi-calendar-event me-1"></i> Load Date
+        </button>
+      </div>
+      <div class="col-md-5 text-md-end">
+        {% if is_too_early %}
+          <div class="alert alert-warning py-2 m-0 small d-inline-block border">
+            <i class="bi bi-clock-history me-1"></i><strong>Window Not Open:</strong> Attendance opens at {{ allowed_start_time|time:"H:i" }} (10 mins before class ends).
+          </div>
+        {% elif is_locked_for_teacher %}
+          <div class="alert alert-danger py-2 m-0 small d-inline-block border">
+            <i class="bi bi-lock-fill me-1"></i><strong>Teacher Lock:</strong> Past date attendance can only be modified by an Administrator.
+          </div>
+        {% elif is_past_date and is_admin %}
+          <div class="alert alert-info py-2 m-0 small d-inline-block border">
+            <i class="bi bi-shield-lock-fill me-1"></i><strong>Admin Override:</strong> Editing historical records for {{ selected_date }}.
+          </div>
+        {% else %}
+          <div class="alert alert-success py-2 m-0 small d-inline-block border">
+            <i class="bi bi-check-circle-fill me-1"></i><strong>Same-Day Window Active:</strong> Recording attendance for Today ({{ today }}).
+          </div>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <!-- Attendance Table -->
+  <div class="card p-4 shadow-sm border-0">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <h5 class="fw-bold m-0">Enrolled Roster ({{ student_records|length }})</h5>
+        {% if schedule_slot %}
+          <span class="text-muted small">
+            <i class="bi bi-clock me-1"></i>Slot: {{ schedule_slot.start_time|time:"H:i" }} - {{ schedule_slot.end_time|time:"H:i" }} | Room {{ schedule_slot.room_number }}
+          </span>
+        {% endif %}
+      </div>
+
+      {% if not is_locked_for_teacher %}
+      <div class="btn-group btn-group-sm">
+        <button type="button" class="btn btn-outline-success fw-semibold" onclick="markAll('PRESENT')">
+          <i class="bi bi-check-all me-1"></i> Mark All Present
+        </button>
+        <button type="button" class="btn btn-outline-danger fw-semibold" onclick="markAll('ABSENT')">
+          <i class="bi bi-x-all me-1"></i> Mark All Absent
+        </button>
+      </div>
+      {% endif %}
     </div>
 
-    <!-- Session Selector & Date Header -->
-    <div class="card p-3 shadow-sm border-0 mb-4">
-        <form method="get" class="row g-3 align-items-end">
-            <div class="col-md-5">
-                <label class="form-label fw-semibold small">Session / Lecture Date</label>
-                <input type="date" name="date" class="form-control" value="{{ selected_date }}" required>
-            </div>
-            <div class="col-md-3">
-                <button type="submit" class="btn btn-outline-primary w-100 fw-semibold">
-                    <i class="bi bi-calendar-event me-1"></i> Switch Date
-                </button>
-            </div>
-            <div class="col-md-4 text-md-end">
-                {% if is_already_marked %}
-                <span class="badge bg-warning-subtle text-warning border px-3 py-2"><i
-                        class="bi bi-info-circle me-1"></i>Session already recorded. Modifying will update
-                    records.</span>
-                {% else %}
-                <span class="badge bg-light text-muted border px-3 py-2">Unrecorded Session</span>
-                {% endif %}
-            </div>
-        </form>
-    </div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th style="width: 25%;">Roll Number</th>
+              <th style="width: 35%;">Student Name</th>
+              <th style="width: 20%;">Attendance</th>
+              <th style="width: 20%;">Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in student_records %}
+            <tr>
+              <td class="fw-bold text-dark">{{ item.student.roll_number }}</td>
+              <td class="fw-semibold">{{ item.student.user.get_full_name|default:item.student.user.username }}</td>
+              <td>
+                <select name="status_{{ item.student.id }}" class="form-select form-select-sm status-dropdown" {% if is_locked_for_teacher %}disabled{% endif %}>
+                  {% for val, label in status_choices %}
+                  <option value="{{ val }}" {% if item.status == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>
+                <input type="text" name="remarks_{{ item.student.id }}" class="form-control form-control-sm" value="{{ item.remarks }}" placeholder="Optional notes" {% if is_locked_for_teacher %}disabled{% endif %}>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="4" class="text-center text-muted py-4">No enrolled students found for this course.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
 
-    <!-- Batch Controls & Student List -->
-    <div class="card p-4 shadow-sm border-0">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="fw-bold m-0">Student Roll Call ({{ student_records|length }})</h5>
-            <div class="btn-group btn-group-sm">
-                <button type="button" class="btn btn-outline-success" onclick="markAll('PRESENT')">All Present</button>
-                <button type="button" class="btn btn-outline-danger" onclick="markAll('ABSENT')">All Absent</button>
-            </div>
-        </div>
-
-        <form method="post">
-            {% csrf_token %}
-            <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th style="width: 15%;">Roll Number</th>
-                            <th style="width: 25%;">Student Name</th>
-                            <th style="width: 15%;">Cumulative %</th>
-                            <th style="width: 20%;">Attendance</th>
-                            <th style="width: 25%;">Remarks</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in student_records %}
-                        <tr>
-                            <td class="fw-bold">{{ item.student.roll_number }}</td>
-                            <td>{{ item.student.user.get_full_name|default:item.student.user.username }}</td>
-                            <td>
-                                <span
-                                    class="badge {% if item.current_pct >= 75 %}bg-success{% elif item.current_pct >= 60 %}bg-warning{% else %}bg-danger{% endif %}">
-                                    {{ item.current_pct }}%
-                                </span>
-                            </td>
-                            <td>
-                                <select name="status_{{ item.student.id }}"
-                                    class="form-select form-select-sm status-dropdown">
-                                    {% for val, label in status_choices %}
-                                    <option value="{{ val }}" {% if item.status == val %}selected{% endif %}>{{ label }}
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                            </td>
-                            <td>
-                                <input type="text" name="remarks_{{ item.student.id }}"
-                                    class="form-control form-control-sm" value="{{ item.remarks }}"
-                                    placeholder="Optional notes">
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5" class="text-center text-muted py-4">No students enrolled to mark.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            {% if student_records %}
-            <div class="mt-4 text-end">
-                <button type="submit" class="btn btn-success px-5 py-2 fw-semibold">
-                    <i class="bi bi-cloud-arrow-up-fill me-1"></i> Submit & Save Attendance
-                </button>
-            </div>
-            {% endif %}
-        </form>
-    </div>
+      {% if student_records and not is_locked_for_teacher %}
+      <div class="mt-4 text-end">
+        <button type="submit" class="btn btn-success px-5 py-2 fw-semibold">
+          <i class="bi bi-check-circle-fill me-1"></i> Save Attendance
+        </button>
+      </div>
+      {% endif %}
+    </form>
+  </div>
 </div>
 
 <script>
-    function markAll(statusVal) {
-        document.querySelectorAll('.status-dropdown').forEach(select => {
-            select.value = statusVal;
-        });
-    }
+function markAll(statusVal) {
+  document.querySelectorAll('.status-dropdown').forEach(select => {
+    select.value = statusVal;
+  });
+}
 </script>
 {% endblock %}

@@ -18,7 +18,7 @@ urlpatterns = [
     
     path('courses/', views.course_list, name='course_list'),
     path('courses/create/', views.course_create, name='course_create'),
-    path('courses/<int:pk>/update/', views.course_update, name='course_update'),
+    path('courses/<int:pk>/edit/', views.course_update, name='course_update'),
     path('courses/<int:pk>/delete/', views.course_delete, name='course_delete'),
     
     path('attendance/mark/', views.mark_attendance, name='mark_attendance'),
@@ -37,4 +37,19 @@ urlpatterns = [
     path('enrollments/manage/', views.manage_enrollments, name='manage_enrollments'),
     path('courses/applications/', views.admin_course_applications, name='admin_course_applications'),
     path('courses/apply/', views.student_course_registration, name='student_course_registration'),
+
+    path('timetable/manage/', views.manage_timetable, name='manage_timetable'),
+    path('timetable/teacher/', views.teacher_schedule_view, name='teacher_schedule'),
+    path('timetable/student/', views.student_timetable_view, name='student_timetable'),
+
+    path('timetable/extra-class/', views.schedule_extra_class, name='schedule_extra_class'),
+
+    path('notifications/', views.notification_list, name='notification_list'),
+    path('notifications/broadcast/', views.broadcast_notification, name='broadcast_notification'),
+    path('notifications/<int:pk>/hide/', views.hide_notification, name='hide_notification'),
+    path('notifications/hide-all/', views.hide_all_notifications, name='hide_all_notifications'),
+
+    path('departments/', views.department_list, name='department_list'),
+    path('departments/<int:pk>/edit/', views.department_update, name='department_update'),
+    path('departments/<int:pk>/delete/', views.department_delete, name='department_delete'),
 ]

@@ -3,6 +3,9 @@ from django.forms import inlineformset_factory
 from .models import Department, AcademicSession, Teacher, Student, Course, Enrollment, Attendance
 from accounts.models import User
 from .models import Notification
+from .models import Timetable
+from datetime import datetime, timedelta
+from datetime import time
 
 
 class DepartmentForm(forms.ModelForm):
@@ -30,22 +33,39 @@ class AcademicSessionForm(forms.ModelForm):
 class CourseForm(forms.ModelForm):
     class Meta:
         model = Course
-        fields = ['code', 'title', 'department', 'teacher', 'credits', 'prerequisites']
+        fields = ['code', 'title', 'department', 'teacher', 'credits', 'total_planned_classes']
         widgets = {
             'code': forms.TextInput(attrs={'class': 'form-control'}),
             'title': forms.TextInput(attrs={'class': 'form-control'}),
             'department': forms.Select(attrs={'class': 'form-select'}),
             'teacher': forms.Select(attrs={'class': 'form-select'}),
             'credits': forms.NumberInput(attrs={'class': 'form-control'}),
-            'prerequisites': forms.SelectMultiple(attrs={'class': 'form-select'}),
+            'total_planned_classes': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
         }
 
+class ExtraClassForm(forms.ModelForm):
+    class Meta:
+        model = Timetable
+        fields = ['course', 'academic_session', 'specific_date', 'start_time', 'end_time', 'room_number']
+        widgets = {
+            'course': forms.Select(attrs={'class': 'form-select'}),
+            'academic_session': forms.Select(attrs={'class': 'form-select'}),
+            'specific_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'start_time': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+            'end_time': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+            'room_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Lab 401'}),
+        }
 
 class StudentForm(forms.ModelForm):
     username = forms.CharField(max_length=150, widget=forms.TextInput(attrs={'class': 'form-control'}))
     first_name = forms.CharField(max_length=150, widget=forms.TextInput(attrs={'class': 'form-control'}))
     last_name = forms.CharField(max_length=150, widget=forms.TextInput(attrs={'class': 'form-control'}))
     email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control'}))
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        required=False,
+        help_text="Required when creating. Leave blank when updating to keep existing password."
+    )
 
     department = forms.ModelChoiceField(
         queryset=Department.objects.all(),
@@ -73,12 +93,20 @@ class StudentForm(forms.ModelForm):
             self.fields['first_name'].initial = self.instance.user.first_name
             self.fields['last_name'].initial = self.instance.user.last_name
             self.fields['email'].initial = self.instance.user.email
+            self.fields['password'].required = False
+        else:
+            self.fields['password'].required = True
 
 class TeacherForm(forms.ModelForm):
     username = forms.CharField(max_length=150, widget=forms.TextInput(attrs={'class': 'form-control'}))
     first_name = forms.CharField(max_length=150, widget=forms.TextInput(attrs={'class': 'form-control'}))
-    last_name = conscious_last_name = forms.CharField(max_length=150, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    last_name = forms.CharField(max_length=150, widget=forms.TextInput(attrs={'class': 'form-control'}))
     email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control'}))
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        required=False,
+        help_text="Required when creating. Leave blank when updating to keep existing password."
+    )
 
     department = forms.ModelChoiceField(
         queryset=Department.objects.all(),
@@ -102,7 +130,11 @@ class TeacherForm(forms.ModelForm):
             self.fields['first_name'].initial = self.instance.user.first_name
             self.fields['last_name'].initial = self.instance.user.last_name
             self.fields['email'].initial = self.instance.user.email
+            self.fields['password'].required = False
+        else:
+            self.fields['password'].required = True
 
+            
 class AttendanceFilterForm(forms.Form):
     course = forms.ModelChoiceField(queryset=Course.objects.all(), widget=forms.Select(attrs={'class': 'form-select'}))
     date = forms.DateField(widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}))
@@ -168,3 +200,57 @@ class AdvancedAttendanceForm(forms.Form):
         required=False,
         widget=forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Optional remarks'})
     )
+
+class TimetableForm(forms.ModelForm):
+    # Field to pick starting hour (8 AM to 6 PM)
+    start_hour = forms.ChoiceField(
+        choices=[(f"{h:02d}", f"{h:02d}:00") for h in range(8, 19)],
+        widget=forms.Select(attrs={'class': 'form-select', 'id': 'id_start_hour', 'onchange': 'calculateTiming()'}),
+        help_text="Select starting hour. Minutes will auto-set to :15."
+    )
+
+    class Meta:
+        model = Timetable
+        fields = ['course', 'academic_session', 'class_type', 'day', 'start_time', 'end_time', 'room_number']
+        widgets = {
+            'course': forms.Select(attrs={'class': 'form-select'}),
+            'academic_session': forms.Select(attrs={'class': 'form-select'}),
+            'class_type': forms.Select(attrs={'class': 'form-select', 'id': 'id_class_type', 'onchange': 'calculateTiming()'}),
+            'day': forms.Select(attrs={'class': 'form-select'}),
+            'start_time': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time', 'id': 'id_start_time', 'readonly': 'readonly'}),
+            'end_time': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time', 'id': 'id_end_time', 'readonly': 'readonly'}),
+            'room_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Lab 302'}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_hour_str = cleaned_data.get('start_hour')
+        class_type = cleaned_data.get('class_type')
+
+        if start_hour_str:
+            start_h = int(start_hour_str)
+            
+            cleaned_data['start_time'] = time(hour=start_h, minute=15)
+
+            duration_hours = 2 if class_type == Timetable.ClassType.PRACTICAL else 1
+            end_h = (start_h + duration_hours) % 24
+            
+            cleaned_data['end_time'] = time(hour=end_h, minute=10)
+
+        return cleaned_data
+
+
+class DepartmentForm(forms.ModelForm):
+    class Meta:
+        model = Department
+        fields = ['name', 'code']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Computer Science & Engineering'}),
+            'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. CSE'}),
+        }
+
+    def clean_code(self):
+        code = self.cleaned_data.get('code', '').strip().upper()
+        if Department.objects.filter(code=code).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("A department with this code already exists.")
+        return code

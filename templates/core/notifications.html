@@ -1,38 +1,127 @@
 {% extends 'base.html' %}
+{% load humanize %}
 
 {% block content %}
 <div class="container-fluid" style="max-width: 900px;">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-      <h3 class="fw-bold m-0">System Notifications & Circulars</h3>
-      <p class="text-muted small m-0">Institution notices, verification alerts, and broadcasts</p>
+      <h3 class="fw-bold m-0">Notification Center</h3>
+      <p class="text-muted small m-0">View system notices and announcements</p>
     </div>
-    {% if user.role == 'ADMIN' or user.is_superuser %}
-    <a href="{% url 'core:broadcast_notification' %}" class="btn btn-primary">
-      <i class="bi bi-megaphone-fill me-1"></i> New Announcement
-    </a>
+    {% if notifications %}
+    <form action="{% url 'core:hide_all_notifications' %}" method="post"
+      onsubmit="return confirm('Clear all notifications?');">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-outline-danger btn-sm fw-semibold">
+        <i class="bi bi-trash3-fill me-1"></i> Clear All Notifications
+      </button>
+    </form>
     {% endif %}
   </div>
 
-  <div class="d-flex flex-column gap-3">
-    {% for notice in notifications %}
-    <div
-      class="card p-3 border-start border-4 {% if notice.notification_type == 'VERIFICATION' %}border-warning{% elif notice.notification_type == 'SECURITY' %}border-info{% elif notice.notification_type == 'ATTENDANCE' %}border-danger{% else %}border-primary{% endif %} shadow-sm">
-      <div class="d-flex justify-content-between align-items-center mb-1">
-        <div class="d-flex align-items-center gap-2">
-          <span class="badge bg-light text-dark border">{{ notice.get_notification_type_display }}</span>
-          <h6 class="fw-bold m-0 text-dark">{{ notice.title }}</h6>
+  <div class="card p-3 shadow-sm border-0">
+    <div id="notification-container" class="d-flex flex-column gap-3">
+      {% for notif in notifications %}
+      <div id="notif-card-{{ notif.id }}"
+        class="p-3 rounded-3 border d-flex justify-content-between align-items-start bg-white transition-all shadow-sm">
+        <div class="d-flex gap-3 align-items-start">
+          <div class="mt-1">
+            {% if notif.notification_type == 'URGENT' or notif.notification_type == 'ATTENDANCE' %}
+            <i class="bi bi-exclamation-triangle-fill text-danger fs-4"></i>
+            {% elif notif.notification_type == 'VERIFICATION' %}
+            <i class="bi bi-shield-check text-success fs-4"></i>
+            {% else %}
+            <i class="bi bi-info-circle-fill text-primary fs-4"></i>
+            {% endif %}
+          </div>
+          <div>
+            <div class="d-flex align-items-center gap-2">
+              <h6 class="fw-bold text-dark m-0">{{ notif.title }}</h6>
+              <span class="badge bg-light text-dark border small">{{ notif.get_notification_type_display }}</span>
+            </div>
+            <p class="text-secondary small m-0 mt-2">{{ notif.message }}</p>
+            <span class="text-muted small fs-7 mt-1 d-block">
+              <i class="bi bi-clock me-1"></i>{{ notif.created_at|naturaltime|default:notif.created_at }}
+            </span>
+          </div>
         </div>
-        <span class="text-muted small">{{ notice.created_at|timesince }} ago</span>
+
+        <button type="button" class="btn btn-sm btn-light text-secondary border-0 hover-danger"
+          onclick="hideNotification('{{ notif.id }}')" title="Dismiss Notification">
+          <i class="bi bi-x-lg"></i>
+        </button>
       </div>
-      <p class="text-secondary small m-0 mt-2">{{ notice.message }}</p>
+      {% empty %}
+      <div id="empty-state" class="text-center py-5">
+        <i class="bi bi-bell-slash text-muted fs-1 mb-2 d-block"></i>
+        <h6 class="fw-bold text-muted">No Notifications Available</h6>
+        <p class="text-muted small m-0">You have cleared all alerts!</p>
+      </div>
+      {% endfor %}
     </div>
-    {% empty %}
-    <div class="card p-5 text-center text-muted">
-      <i class="bi bi-bell-slash fs-1 text-secondary mb-2"></i>
-      <p class="m-0">No notifications available right now.</p>
-    </div>
-    {% endfor %}
   </div>
 </div>
+
+<script>
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  function hideNotification(notifId) {
+    fetch(`/notifications/${notifId}/hide/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken'),
+        'Content-Type': 'application/json'
+      }
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'success') {
+          const card = document.getElementById(`notif-card-${notifId}`);
+          if (card) {
+            card.style.transition = 'all 0.3s ease';
+            card.style.opacity = '0';
+            card.style.transform = 'translateX(20px)';
+
+            setTimeout(() => {
+              card.remove();
+
+              // Update badge counter in sidebar/navbar
+              const badge = document.getElementById('sidebar-notif-badge');
+              if (badge) {
+                if (data.unread_count > 0) {
+                  badge.innerText = data.unread_count;
+                } else {
+                  badge.remove();
+                }
+              }
+
+              // Render empty state if list is cleared
+              const container = document.getElementById('notification-container');
+              if (container && container.children.length === 0) {
+                container.innerHTML = `
+                            <div id="empty-state" class="text-center py-5">
+                                <i class="bi bi-bell-slash text-muted fs-1 mb-2 d-block"></i>
+                                <h6 class="fw-bold text-muted">No Notifications Available</h6>
+                                <p class="text-muted small m-0">You have cleared all alerts!</p>
+                            </div>`;
+              }
+            }, 300);
+          }
+        }
+      });
+  }
+</script>
 {% endblock %}

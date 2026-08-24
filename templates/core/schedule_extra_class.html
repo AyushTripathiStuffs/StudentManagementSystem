@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 800px;">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h3 class="fw-bold m-0">Schedule Extra / Makeup Class</h3>
+            <p class="text-muted small m-0">Schedule additional sessions to complete course curriculum targets</p>
+        </div>
+        <a href="{% url 'core:manage_timetable' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i> Timetable
+        </a>
+    </div>
+
+    <div class="card p-4 shadow-sm border-0">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold small">Select Course</label>
+                    {{ form.course }}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold small">Academic Session</label>
+                    {{ form.academic_session }}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold small">Specific Date</label>
+                    {{ form.specific_date }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small">Start Time</label>
+                    {{ form.start_time }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small">End Time</label>
+                    {{ form.end_time }}
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold small">Room Number / Venue</label>
+                    {{ form.room_number }}
+                </div>
+            </div>
+            <div class="mt-4 text-end">
+                <button type="submit" class="btn btn-warning text-dark px-4 fw-bold">
+                    <i class="bi bi-megaphone-fill me-1"></i> Schedule & Broadcast Notice
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

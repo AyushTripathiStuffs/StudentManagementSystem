@@ -1,9 +1,10 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth import login, logout
+from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .forms import LoginForm, UserProfileForm
+from .forms import LoginForm, RestrictedPasswordChangeForm, UserProfileForm
 from core.models import Notification
+from .models import User
 
 def login_view(request):
     if request.user.is_authenticated:

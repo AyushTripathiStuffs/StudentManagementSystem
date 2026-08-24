@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold m-0">Department Management</h3>
+            <p class="text-muted small m-0">Organize academic faculties, course distribution, and enrollment statistics
+            </p>
+        </div>
+        <button type="button" class="btn btn-primary fw-semibold" data-bs-toggle="modal" data-bs-target="#addDeptModal">
+            <i class="bi bi-plus-circle-fill me-1"></i> Add New Department
+        </button>
+    </div>
+
+    <!-- Departments Grid -->
+    <div class="row g-4 mb-4">
+        {% for dept in departments %}
+        <div class="col-md-6 col-xl-4">
+            <div class="card h-100 shadow-sm border-0 position-relative">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="badge bg-primary fs-6 px-3 py-2 fw-bold">{{ dept.code }}</span>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-light border-0" type="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots-vertical"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow">
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'core:department_update' dept.id %}">
+                                        <i class="bi bi-pencil me-2 text-primary"></i>Edit Details
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item text-danger"
+                                        href="{% url 'core:department_delete' dept.id %}">
+                                        <i class="bi bi-trash me-2"></i>Delete
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h5 class="fw-bold text-dark mb-3">{{ dept.name }}</h5>
+
+                    <!-- Analytics Badges -->
+                    <div class="row g-2 text-center mt-auto">
+                        <div class="col-4">
+                            <div class="p-2 bg-light rounded-3 border">
+                                <span class="fs-6 fw-bold text-dark d-block">{{ dept.student_count }}</span>
+                                <span class="text-muted fs-7">Students</span>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 bg-light rounded-3 border">
+                                <span class="fs-6 fw-bold text-dark d-block">{{ dept.teacher_count }}</span>
+                                <span class="text-muted fs-7">Faculty</span>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 bg-light rounded-3 border">
+                                <span class="fs-6 fw-bold text-dark d-block">{{ dept.course_count }}</span>
+                                <span class="text-muted fs-7">Courses</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center py-5">
+            <i class="bi bi-building-exclamation text-muted fs-1 mb-2"></i>
+            <h6 class="fw-bold text-muted">No Departments Found</h6>
+            <p class="text-muted small">Click "Add New Department" to setup your first academic unit.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Add Department Modal -->
+<div class="modal fade" id="addDeptModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title fw-bold"><i class="bi bi-building-plus me-2 text-primary"></i>Create Department
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">Department Name</label>
+                        {{ form.name }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">Department Code (Short Identifer)</label>
+                        {{ form.code }}
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary fw-semibold px-4">Save Department</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

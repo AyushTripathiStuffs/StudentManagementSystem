@@ -60,11 +60,14 @@ class Student(models.Model):
 
 class Course(models.Model):
     code = models.CharField(max_length=20, unique=True)
-    title = models.CharField(max_length=150)
-    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='courses')
-    teacher = models.ForeignKey(Teacher, on_delete=models.SET_NULL, null=True, blank=True, related_name='courses')
-    credits = models.PositiveSmallIntegerField(default=3)
-    prerequisites = models.ManyToManyField('self', symmetrical=False, blank=True, related_name='prerequisite_for')
+    title = models.CharField(max_length=200)
+    department = models.ForeignKey(Department, on_delete=models.CASCADE)
+    teacher = models.ForeignKey(Teacher, on_delete=models.SET_NULL, null=True, blank=True)
+    credits = models.IntegerField(default=3)
+    total_planned_classes = models.PositiveIntegerField(
+        default=40,
+        help_text="Total number of sessions required to complete the curriculum"
+    )
 
     def __str__(self):
         return f"{self.code} - {self.title}"
@@ -149,6 +152,7 @@ class Notification(models.Model):
         default=NotificationType.GENERAL
     )
     is_read = models.BooleanField(default=False)
+    is_hidden = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -178,3 +182,44 @@ class CourseApplication(models.Model):
 
     def __str__(self):
         return f"{self.student.roll_number} - {self.course.code} ({self.status})"
+
+class Timetable(models.Model):
+    class DayOfWeek(models.TextChoices):
+        MONDAY = 'MONDAY', 'Monday'
+        TUESDAY = 'TUESDAY', 'Tuesday'
+        WEDNESDAY = 'WEDNESDAY', 'Wednesday'
+        THURSDAY = 'THURSDAY', 'Thursday'
+        FRIDAY = 'FRIDAY', 'Friday'
+        SATURDAY = 'SATURDAY', 'Saturday'
+
+    class ClassType(models.TextChoices):
+        LECTURE = 'LECTURE', 'Lecture (1 Hour)'
+        PRACTICAL = 'PRACTICAL', 'Practical Lab (2 Hours)'
+
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='schedules')
+    academic_session = models.ForeignKey(AcademicSession, on_delete=models.CASCADE, related_name='schedules')
+    class_type = models.CharField(
+        max_length=15, 
+        choices=ClassType.choices, 
+        default=ClassType.LECTURE
+    )
+    day = models.CharField(max_length=10, choices=DayOfWeek.choices)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    room_number = models.CharField(max_length=30)
+    is_extra_class = models.BooleanField(
+        default=False, 
+        help_text="Designates this session as an extra/makeup class"
+    )
+    specific_date = models.DateField(
+        null=True, 
+        blank=True, 
+        help_text="Required if scheduling an extra class on a specific date"
+    )
+
+    class Meta:
+        ordering = ['day', 'start_time']
+
+    def __str__(self):
+        extra_tag = f" [EXTRA CLASS: {self.specific_date}]" if self.is_extra_class else ""
+        return f"{self.course.code} | {self.get_day_display()} ({self.start_time.strftime('%H:%M')}-{self.end_time.strftime('%H:%M')}) - Room {self.room_number}{extra_tag}"
